@@ -1,3 +1,8 @@
+# Code Whisperer
+This app automatically creates documentation and provides insights to your code.
+
+It's as easy as pointing to a GitHub repository, loading and vectorizing the data into AstraDB and then calling out to a LLM to generate relevant code.
+
 # Python environments
 In case you want to run all of the above locally, it's useful to create a *Virtual Environment*. Use the below to set it up:
 ```
