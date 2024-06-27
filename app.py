@@ -12,23 +12,31 @@ from openai import AsyncOpenAI
 
 import reporeader
 
+# Initialize the github repo helper class
 if "repo" not in st.session_state:
     st.session_state.repo = reporeader.RepoReader()
 
+# Initialize the tabs and placeholders
 tab1, tab2, tab3, tab4 = st.tabs(["Repository data", "Overview", "Architectural summary", "Domain model"])
+tab1.header("Repository data")
 repository_data_placeholder = tab1.empty()
+tab2.header("Overview")
 overview_placeholder = tab2.empty()
+tab3.header("Architectural summary")
 architectural_summary_placeholder = tab3.empty()
+tab4.header("Domain model")
 domain_model_placeholder = tab4.empty()
 
+# Initialize the session states
 if "repository_data" not in st.session_state:
-    st.session_state.repository_data = "## Repository information\nPlease select a repository and generate documentation."
+    st.session_state.repository_data = "Please select a repository first."
+    st.session_state.enable_generate_documentation = False
 if "overview" not in st.session_state:
-    st.session_state.overview = "## Overview\nPlease select a repository and generate documentation."
+    st.session_state.overview = "Please select a repository and click generate documentation."
 if "architectural_summary" not in st.session_state:
-    st.session_state.architectural_summary = "## Overview\nPlease select a repository and generate documentation."
+    st.session_state.architectural_summary = "Please select a repository and click generate documentation."
 if "domain_model" not in st.session_state:
-    st.session_state.domain_model = "## Overview\nPlease select a repository and generate documentation."
+    st.session_state.domain_model = "Please select a repository and click generate documentation."
 
 # Cache the Astra DB Vector Store and collection
 @st.cache_resource(show_spinner='Connecting to Astra')
@@ -62,15 +70,24 @@ async def load_sidebar():
 
             submitted = st.form_submit_button("Submit")
             if submitted:
-                st.success('Reading repository and vectorizing data into Astra DB. Please hang on...')
-                st.session_state.repo.connect(github_key)
-                st.session_state.repo.setRepository(github_repo)
-                st.session_state.repo.setExtensions(github_extensions)
-                task = asyncio.create_task(generate_repo_data())
-                await task
+                # First check if the repo has already been loaded
+                result = collection.find_one(
+                    {
+                        "name": github_repo
+                    }
+                )
+                if result:
+                    st.warning('The provided repository has already been loaded into Astra DB. Please select another one.')
+                else:
+                    st.success('Reading repository and vectorizing data into Astra DB. Please hang on...')
+                    st.session_state.repo.connect(github_key)
+                    st.session_state.repo.setRepository(github_repo)
+                    st.session_state.repo.setExtensions(github_extensions)
+                    task = asyncio.create_task(generate_repository_data())
+                    await task
 
-async def generate_repo_data():
-    contents_output = "## Main contents\nThe provided repository contains the following files and information:\n"
+async def generate_repository_data():
+    contents_output = "The provided repository contains the following files and information:\n"
     contents = st.session_state.repo.getRepositoryContents()
     for c in contents:
         contents_output += f"- {c.name}\n"
@@ -83,21 +100,25 @@ async def generate_repo_data():
             "topics": st.session_state.repo.getTopics(),
             "stars": st.session_state.repo.getStars(),
             "filename": c.name,
-            "$vectorize": f"Repository name: {st.session_state.repo.getName()}, File name: {c.name}, Content {c.decoded_content.decode()}"            
+            "$vectorize": f"Repository name: {st.session_state.repo.getName()}\nFile name: {c.name}\nFile size: {c.size}\nContent {c.decoded_content.decode()}"            
         }
+        print (context)
         collection.insert_one(context)
 
-    st.session_state.repo_data += contents_output
-    task = asyncio.create_task(show_repo_data())
+    st.session_state.repository_data = contents_output
+    st.session_state.enable_generate_documentation = True
+    task = asyncio.create_task(show_repository_data())
     await task
-
-async def show_repo_data():
-    repository_data_placeholder.markdown(st.session_state.repo_data)
-    submitted = repository_data_placeholder.button("Generate documentation")
-    if submitted:
-        repository_data_placeholder.success('Generating documentation based on source code in the repository. Please hang on...')
-        task = asyncio.create_task(generateDocumentation())
-        await task
+    
+async def show_repository_data():
+    print("In show_repository_data()")
+    repository_data_placeholder.markdown(st.session_state.repository_data)
+    if st.session_state.enable_generate_documentation:
+        submitted = tab1.button("Generate documentation")
+        if submitted:
+            tab1.success('Generating documentation based on source code in the repository. Please hang on...')
+            task = asyncio.create_task(generateDocumentation())
+            await task
 
 async def show_overview():
     overview_placeholder.markdown(st.session_state.overview)
@@ -158,7 +179,7 @@ async def advisor(search, question, placeholder):
     # Now pass the context to the Chat Completion
     client = AsyncOpenAI(api_key=st.secrets['OPENAI_API_KEY'])
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You're an IT architect and programmer specialized in migrations of microservices."},
@@ -168,16 +189,19 @@ async def advisor(search, question, placeholder):
         stream=True
     )
 
+    print(response)
     streaming_content = ""
-    for chunk in response:
-        streaming_content += chunk.choices[0].delta.content
-        placeholder.markdown(streaming_content)
+    async for chunk in response:
+        chunk_content = chunk.choices[0].delta.content
+        if chunk_content is not None:
+            streaming_content += chunk_content
+            placeholder.markdown(f"{streaming_content}▌")
 
-    return response.choices[0].message.content
+    return streaming_content[:-1]
 
 async def main():
     task1 = asyncio.create_task(load_sidebar())
-    task1 = asyncio.create_task(show_repo_data())
+    task1 = asyncio.create_task(show_repository_data())
     task2 = asyncio.create_task(show_overview())
     task3 = asyncio.create_task(show_architectural_summary())
     task4 = asyncio.create_task(show_domain_model())
