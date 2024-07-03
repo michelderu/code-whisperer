@@ -102,6 +102,7 @@ async def generate_repository_data():
             "topics": st.session_state.repo.getTopics(),
             "stars": st.session_state.repo.getStars(),
             "filename": c.name,
+            "path": c.path,
             "$vectorize": f"Repository name: {st.session_state.repo.getName()}\nFile name: {c.name}\nFile size: {c.size}\nContent {c.decoded_content.decode()}"            
         }
         
@@ -165,7 +166,7 @@ async def generateDocumentation():
         ),
         advisor(
             f"Find the main code for the {st.session_state.repo.getName()} repository",
-            "Show me the domain model of the chatbot service in a structured way (like uml)",
+            "Show me the domain model of the application in a structured way (like uml)",
             domain_model_placeholder
         )
     )
@@ -185,14 +186,14 @@ async def advisor(search, question, placeholder):
         {},
         vectorize=search, # embedding to search for
         limit=5,
-        projection={"name", "filename"}, # only return these fields from the document
+        projection={"name", "filename", "path"}, # only return these fields from the document
         include_similarity=True
     )
 
     context = []
     for result in results:
         print (f"Result: {result['filename']}")
-        contents = st.session_state.repo.getRepositoryContent(result["filename"]).decoded_content.decode()
+        contents = st.session_state.repo.getRepositoryContent(result["path"]).decoded_content.decode()
         context.append(contents)
 
     # Now pass the context to the Chat Completion
