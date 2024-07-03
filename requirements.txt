@@ -5,3 +5,5 @@ PyGithub
 watchdog
 asyncio
 rich
+instructor
+jsonref

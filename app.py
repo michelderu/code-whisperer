@@ -1,4 +1,3 @@
-import os
 import asyncio
 import json
 import streamlit as st
@@ -8,9 +7,12 @@ from astrapy import DataAPIClient
 from astrapy.constants import VectorMetric
 from astrapy.info import CollectionVectorServiceOptions
 
-from openai import AsyncOpenAI
+from openai import OpenAI, AsyncOpenAI
 
 import reporeader
+import attributes
+
+import instructor
 
 # Initialize the github repo helper class
 if "repo" not in st.session_state:
@@ -76,15 +78,15 @@ async def load_sidebar():
                         "name": github_repo
                     }
                 )
-                if result:
+                #if result:
+                if False:
                     st.warning('The provided repository has already been loaded into Astra DB. Please select another one.')
                 else:
                     st.success('Reading repository and vectorizing data into Astra DB. Please hang on...')
                     st.session_state.repo.connect(github_key)
                     st.session_state.repo.setRepository(github_repo)
                     st.session_state.repo.setExtensions(github_extensions)
-                    task = asyncio.create_task(generate_repository_data())
-                    await task
+                    await generate_repository_data()
 
 async def generate_repository_data():
     contents_output = "The provided repository contains the following files and information:\n"
@@ -102,13 +104,34 @@ async def generate_repository_data():
             "filename": c.name,
             "$vectorize": f"Repository name: {st.session_state.repo.getName()}\nFile name: {c.name}\nFile size: {c.size}\nContent {c.decoded_content.decode()}"            
         }
-        print (context)
+        
+        attributes = await generate_attributes({"name": st.session_state.repo.getName(), "content": c.decoded_content.decode()})
+        for attribute in attributes:
+                if attribute[1] != "":
+                    contents_output += f"\t- {attribute[0]}: {attribute[1]}\n"
+        context["attributes"] = attributes.model_dump_json()
+
         collection.insert_one(context)
 
     st.session_state.repository_data = contents_output
     st.session_state.enable_generate_documentation = True
-    task = asyncio.create_task(show_repository_data())
-    await task
+    await show_repository_data()
+
+async def generate_attributes(context: str):
+    client = instructor.from_openai(OpenAI(api_key=st.secrets['OPENAI_API_KEY']))
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        response_model=attributes.Attributes,
+        messages=[
+            {"role": "system", "content": f"""You're a programmer and you specialize in understanding all kinds of code.
+Your task is to extract relevant attributes like langauge, number of functions defined, classes, and more. Only do this for actual code.
+Use only the following context: {context}"""},
+            {"role": "user", "content": "Extract the requested attributes from the provided code. Do not process readme files"}
+        ]
+    )
+
+    return response
     
 async def show_repository_data():
     print("In show_repository_data()")
@@ -117,8 +140,7 @@ async def show_repository_data():
         submitted = tab1.button("Generate documentation")
         if submitted:
             tab1.success('Generating documentation based on source code in the repository. Please hang on...')
-            task = asyncio.create_task(generateDocumentation())
-            await task
+            await generateDocumentation()
 
 async def show_overview():
     overview_placeholder.markdown(st.session_state.overview)
@@ -149,16 +171,13 @@ async def generateDocumentation():
     )
 
     st.session_state.overview = result[0]
-    task4 = asyncio.create_task(show_overview())
-    await task4
+    await show_overview()
 
     st.session_state.architectural_summary = result[1]
-    task5 = asyncio.create_task(show_architectural_summary())
-    await task5
+    await show_architectural_summary()
 
     st.session_state.domain_model = result[2]
-    task6 = asyncio.create_task(show_domain_model())
-    await task6
+    await show_domain_model()
 
 async def advisor(search, question, placeholder):
     # First find relevant information from the Vector Database
@@ -200,15 +219,11 @@ async def advisor(search, question, placeholder):
     return streaming_content[:-1]
 
 async def main():
-    task1 = asyncio.create_task(load_sidebar())
-    task1 = asyncio.create_task(show_repository_data())
-    task2 = asyncio.create_task(show_overview())
-    task3 = asyncio.create_task(show_architectural_summary())
-    task4 = asyncio.create_task(show_domain_model())
-    await task1
-    await task2
-    await task3
-    await task4
+    await load_sidebar()
+    await show_repository_data()
+    await show_overview()
+    await show_architectural_summary()
+    await show_domain_model()
 
 if __name__ == "__main__":
     asyncio.run(main())
