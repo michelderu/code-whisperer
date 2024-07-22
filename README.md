@@ -12,7 +12,7 @@ The application, termed Code Whisperer, is a comprehensive tool designed to auto
 
 ### Frontend Layer
 
-*Streamlit*: The application utilizes Streamlit as its primary interface. Streamlit serves as the web application framework that orchestrates user interactions, organizes the interface into various tabs, and provides immediate feedback to users. The main tabs include "Repository data," "Overview," "Architectural summary," "Domain model," and "Chat with your code."
+**Streamlit**: The application utilizes Streamlit as its primary interface. Streamlit serves as the web application framework that orchestrates user interactions, organizes the interface into various tabs, and provides immediate feedback to users. The main tabs include "Repository data," "Overview," "Architectural summary," "Domain model," and "Chat with your code."
 Backend Layer:
 
 **RepoReader Module**: This encapsulates the logic required to fetch data from GitHub repositories. Upon initializing with a GitHub token, it connects to the GitHub API, retrieves repository contents, and filters files based on specified extensions.
