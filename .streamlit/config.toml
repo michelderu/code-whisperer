@@ -1,0 +1,5 @@
+[theme]
+primaryColor = '#FF8C02' # Bright Orange
+backgroundColor = '#2d2d30' # Dark Blue
+secondaryBackgroundColor = '#007acc' # Lighter Blue
+textColor = '#EEEEEE'

@@ -14,6 +14,9 @@ import attributes
 
 import instructor
 
+import pandas as pd
+import numpy as np
+
 # Initialize the github repo helper class
 if "repo" not in st.session_state:
     st.session_state.repo = reporeader.RepoReader()
@@ -111,6 +114,9 @@ async def generate_repository_data():
                     contents_output += f"\t- {attribute[0]}: {attribute[1]}\n"
         context["attributes"] = attributes.model_dump_json()
 
+        df = pd.DataFrame(context)
+        st.dataframe(df)
+
         # Load the JSON document into Astra DB
         collection.insert_one(context)
 
@@ -190,7 +196,7 @@ async def advisor(search, question, placeholder):
 
     context = []
     for result in results:
-        print (f"Result: {result['path']}")
+        print (f"Result: {result['filename']}")
         contents = st.session_state.repo.getRepositoryContent(result["path"]).decoded_content.decode()
         context.append(contents)
 
