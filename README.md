@@ -1,7 +1,7 @@
 # Code Whisperer
 This repo generates documentation and insights from GitHub repositories. It uses a Streamlit interface to interact with the user, allowing them to input a GitHub repository and process specific file types.
 
-The application extracts data from the repository, vectorizes it using AstraDB, and generates relevant documentation with the help of an OpenAI language model.
+The application extracts data from the repository, [vectorizes](https://docs.datastax.com/en/astra-db-serverless/databases/embedding-generation.html) it using [AstraDB](https://db.new), and generates relevant documentation with the help of an OpenAI language model.
 
 Key functionalities include displaying repository data, generating an overview, architectural summary, domain model, and enabling a chat interface for code-related questions. The system uses asynchronous programming to manage tasks efficiently.
 
@@ -17,18 +17,22 @@ The architectural overview can be delineated as follows:
 ### Frontend Layer
 
 **Streamlit**: The application utilizes Streamlit as its primary interface. Streamlit serves as the web application framework that orchestrates user interactions, organizes the interface into various tabs, and provides immediate feedback to users. The main tabs include "Repository data," "Overview," "Architectural summary," "Domain model," and "Chat with your code."
-Backend Layer:
+
+### Backend Layer
 
 **RepoReader Module**: This encapsulates the logic required to fetch data from GitHub repositories. Upon initializing with a GitHub token, it connects to the GitHub API, retrieves repository contents, and filters files based on specified extensions.
 AstraDB: Leveraging AstraDB's scalable database capabilities, the application stores vector embeddings of repository data. This is achieved using the DataAPIClient to create and manage collections that store vectorized representations of file contents.
 Vectorization and Storage:
 
 **Vectorization**: The application relies on text-embedding-ada-002 from OpenAI to transform repository contents into vector embeddings, utilizing cosine similarity metrics for efficient storage and retrieval.
-AstraDB Integration: Data from the repository is vectorized and inserted into AstraDB collections for persistent storage. This includes metadata about the repository and the contents of its files.
-LLM Integration:
+
+**AstraDB Integration**: Data from the repository is vectorized and inserted into AstraDB collections for persistent storage. This includes metadata about the repository and the contents of its files.
+
+### LLM Integration
 
 **OpenAI Integration**: OpenAI’s Large Language Models (LLMs), specifically GPT-4, are employed to generate code documentation. The LLMs interact with vectorized content stored within AstraDB to extract and summarize relevant information about the repository and its codebase.
-Asynchronous Operations:
+
+### Asynchronous Operations
 
 **Asyncio and AsyncOpenAI**: Asynchronous capabilities are provided by Python’s asyncio, ensuring non-blocking operations for tasks such as fetching repository contents, generating documentation, and querying LLMs.
 Session Management:
